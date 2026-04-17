@@ -1,5 +1,8 @@
 import keyring
 import argparse
+import smtplib
+import ssl
+from email.message import EmailMessage
 
 SERVICE_NAME = "smtp_cli"
 
@@ -32,7 +35,7 @@ if __name__ == "__main__":
 
     parser.add_argument("to", help="Recipient email address")
     parser.add_argument("-s", "--subject", default="No Subject", help="Email subject")
-    parser.add_argument("-b", "--body", default="", help="Email body")
+    parser.add_argument("-b", "--body", default="No Body", help="Email body")
 
     args = parser.parse_args()
 
@@ -45,3 +48,26 @@ if __name__ == "__main__":
         f"Body: {args.body[:100] + '...' if len(args.body) > 100 else args.body}"
         # Print first 100 chars of body for preview
     )
+
+    msg = EmailMessage()
+    msg["From"] = email
+    msg["To"] = args.to
+    msg["Subject"] = args.subject
+    msg.set_content(args.body)
+
+    context = ssl.create_default_context()
+
+    try:
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context)
+        server.login(email, password)
+        server.send_message(msg)
+
+        print("Email sent successfully!")
+
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+    finally:
+        try:
+            server.quit()
+        except:
+            pass
