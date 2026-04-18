@@ -1,3 +1,5 @@
+import sys
+import re
 import keyring
 import argparse
 import smtplib
@@ -15,17 +17,17 @@ def get_credentials():
         print(
             "ERROR: No email and password credentials found for the sender. Run setup_credentials.py first."
         )
-        exit(1)
+        sys.exit(1)
     elif not email:
         print(
             "ERROR: Email is missing from keyring. Run setup_credentials.py to add it."
         )
-        exit(1)
+        sys.exit(1)
     elif not password:
         print(
             "ERROR: Password is missing from keyring. Run setup_credentials.py to add it."
         )
-        exit(1)
+        sys.exit(1)
 
     return email, password
 
@@ -33,11 +35,15 @@ def get_credentials():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Simple SMTP email sender")
 
-    parser.add_argument("to", help="Recipient email address")
+    parser.add_argument("-t", "--to", required=True, help="Recipient email address")
     parser.add_argument("-s", "--subject", default="No Subject", help="Email subject")
     parser.add_argument("-b", "--body", default="No Body", help="Email body")
 
     args = parser.parse_args()
+
+    if not re.match(r"[^@]+@[^@]+\.[^@]+", args.to):
+        print(f"ERROR: '{args.to}' is not a valid email address.")
+        sys.exit(1)
 
     email, password = get_credentials()
 
@@ -55,9 +61,9 @@ if __name__ == "__main__":
     msg["Subject"] = args.subject
     msg.set_content(args.body)
 
-    context = ssl.create_default_context()
-
+    server = None
     try:
+        context = ssl.create_default_context()
         server = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context)
         server.login(email, password)
         server.send_message(msg)
@@ -67,7 +73,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Failed to send email: {e}")
     finally:
-        try:
-            server.quit()
-        except:
-            pass
+        if server:
+            try:
+                server.quit()
+            except Exception:
+                pass
