@@ -1,16 +1,26 @@
-import keyring
+import sys
 import getpass
+import keyring
 
-SERVICE_NAME = "smtp_cli"  # Service name for keyring storage
+SERVICE_NAME = "smtp_cli"
 
-# Prompt the user for email and password, then store them in the keyring
-email = input("Enter the email address you want to send the email from: ").strip()
 
-password = getpass.getpass(
-    "Enter your SMTP password (or app password if using Gmail): "
-).strip()
+def main() -> int:
+    email = input("Enter the email address you want to send the email from: ").strip()
+    password = getpass.getpass(
+        "Enter your SMTP password (or app password if using Gmail): "
+    ).strip()
 
-keyring.set_password(SERVICE_NAME, "sender_email", email)
-keyring.set_password(SERVICE_NAME, "sender_password", password)
+    if not email or not password:
+        print("ERROR: email and password are both required.")
+        return 1
 
-print("Credentials have been securely stored in the keyring.")
+    keyring.set_password(SERVICE_NAME, "sender_email", email)
+    keyring.set_password(SERVICE_NAME, "sender_password", password)
+
+    print("Credentials have been securely stored in the keyring.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
