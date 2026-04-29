@@ -1,3 +1,7 @@
+"""Verifies that credentials are present in the keyring under the
+expected service name. Useful as a sanity check after setup_credentials.py,
+or to confirm credentials were removed. Never prints the password itself."""
+
 import sys
 import keyring
 
@@ -5,9 +9,17 @@ SERVICE_NAME = "smtp_cli"
 
 
 def main() -> int:
+    # keyring.get_password() returns None if no entry exists for that
+    # (service, username) pair. None is "falsy" in Python — meaning it
+    # behaves as False in boolean contexts — so `if not value` catches
+    # both "missing entry" and "stored as empty string" with one check.
     email = keyring.get_password(SERVICE_NAME, "sender_email")
     password = keyring.get_password(SERVICE_NAME, "sender_password")
 
+    # Early-return / "guard clause" pattern: each check is independent
+    # and exits the function the moment it fires. Reads top-to-bottom
+    # without nested elif ladders. Same instinct as `return` early in a
+    # PowerShell function instead of building deep `if/else` blocks.
     if not email and not password:
         print("No credentials found. Run setup_credentials.py first.")
         return 1
@@ -18,7 +30,12 @@ def main() -> int:
         print("Password is missing from keyring. Run setup_credentials.py to add it.")
         return 1
 
-    # Never print the password itself — that defeats the point of using a secret store.
+    # Confirm presence WITHOUT echoing the value. A "secret store" that
+    # prints the secret to stdout is not actually a secret store — anyone
+    # with eyes on the terminal (or a screen-share, or a recorded session,
+    # or a logged shell session) would see the password. This is a tiny
+    # version of the same defense-in-depth principle that says service-
+    # account passwords should never appear in script output or logs.
     print(f"Email retrieved: {email}")
     print("Password is present in keyring (hidden).")
     return 0
