@@ -20,10 +20,10 @@ def main() -> int:
     # input() reads a line from stdin and echoes it. Fine for a non-secret.
     email = input("Enter the email address you want to send the email from: ").strip()
 
-    # getpass.getpass() reads a line *without* echoing characters — same
-    # idea as PowerShell's `Read-Host -AsSecureString`, minus the
-    # SecureString wrapper. Also avoids putting the password in shell
-    # history if someone wraps the script call in a longer command.
+    # getpass.getpass() reads a line *without* echoing characters back
+    # to the screen, so the password never appears on the terminal. It
+    # also avoids putting the password into shell history if someone
+    # wraps the script call inside a longer command.
     password = getpass.getpass(
         "Enter your SMTP password (or app password if using Gmail): "
     ).strip()
@@ -40,8 +40,9 @@ def main() -> int:
     #   Windows -> Credential Manager (DPAPI-encrypted by the user's profile)
     #   macOS   -> Keychain
     #   Linux   -> Secret Service (GNOME Keyring / KWallet over D-Bus)
-    # Same principle as a sealed credential in Datto/Kaseya — the secret
-    # never sits on disk in plaintext, and access is gated by the OS user.
+    # The secret never sits on disk in plaintext, and access is gated by
+    # the OS user — same idea as the "sealed credential" feature in any
+    # enterprise RMM/secrets-manager tool.
     keyring.set_password(SERVICE_NAME, "sender_email", email)
     keyring.set_password(SERVICE_NAME, "sender_password", password)
 
@@ -55,8 +56,10 @@ def main() -> int:
 # module name and this block is skipped — so importing the file doesn't
 # accidentally re-prompt for credentials.
 #
-# sys.exit() takes an int and propagates it as the process exit code,
-# the same way PowerShell exposes `$LASTEXITCODE`. This lets shell
-# pipelines and Task Scheduler detect failure.
+# sys.exit() takes an int and propagates it as the process exit code.
+# Shell pipelines, CI runners, and Task Scheduler all check this value
+# to decide whether the script succeeded — 0 means success, anything
+# non-zero means failure (the convention is the same in every Unix-like
+# shell as well as cmd.exe).
 if __name__ == "__main__":
     sys.exit(main())

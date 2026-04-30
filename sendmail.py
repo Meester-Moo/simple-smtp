@@ -29,8 +29,9 @@ EMAIL_RE = re.compile(r"[^@]+@[^@]+\.[^@]+")
 
 # `-> tuple[str, str]` is a *type hint* — it documents that this function
 # returns a pair of strings. Python doesn't enforce hints at runtime; tools
-# like mypy / Pyright check them statically. PowerShell has a rough analogue
-# in `[OutputType([string[]])]` attributes, but Python uses them more.
+# like mypy / Pyright verify them statically. If you've seen TypeScript,
+# the idea is identical: the annotations are for tooling and humans, and
+# the code runs the same with or without them.
 def get_credentials() -> tuple[str, str]:
     """Pull the sender email + password from the OS keyring. Exits the
     process with code 1 if either is missing — there's nothing this CLI
@@ -57,17 +58,16 @@ def get_credentials() -> tuple[str, str]:
 
     # Returning two values: Python implicitly packs them into a tuple, and
     # the caller unpacks with `email, password = get_credentials()`. Same
-    # idea as PowerShell's `return $a, $b` then destructuring with
-    # `$a, $b = Get-Pair`.
+    # idea as JavaScript array destructuring — `const [a, b] = getPair();`.
     return email, password
 
 
 def parse_args() -> argparse.Namespace:
     """Defines the CLI surface. Kept separate from main() so the argument
     declarations are easy to scan without hunting through business logic.
-    `argparse` is Python's stdlib equivalent of PowerShell's `param()`
-    block + `[Parameter()]` attributes — it generates `--help`, validates
-    types, and produces a populated object."""
+    `argparse` is Python's stdlib library for declaring CLI arguments —
+    it generates the `--help` text automatically, validates types, and
+    returns a populated `Namespace` object holding the parsed values."""
     parser = argparse.ArgumentParser(description="Simple SMTP email sender")
     parser.add_argument("-t", "--to", required=True, help="Recipient email address")
     parser.add_argument("-s", "--subject", default="No Subject", help="Email subject")
@@ -122,16 +122,18 @@ def send(
     """
     # ssl.create_default_context() returns an SSLContext with sane,
     # security-focused defaults: verifies the server's certificate against
-    # the system trust store, requires TLS 1.2+, hostname verification on.
-    # Conceptually equivalent to letting Windows' SChannel use its default
-    # validation pipeline rather than rolling your own.
+    # the system trust store (the same root CA bundle the OS uses for
+    # browsers), requires TLS 1.2 or higher, and enables hostname
+    # verification. Don't reach for the lower-level ssl primitives unless
+    # you have a specific reason — the defaults here are what you want.
     context = ssl.create_default_context()
 
-    # `with` is Python's context-manager protocol — the closest analogue
-    # in C#/PowerShell is `using`. The smtplib classes are context managers,
-    # so when the `with` block exits (normal return OR exception), the
-    # connection is closed automatically via `server.quit()`. This replaces
-    # the older `try / finally: server.quit()` boilerplate.
+    # `with` is Python's context-manager protocol. It guarantees that
+    # cleanup code runs when the block exits — whether the block ends
+    # normally OR an exception is raised inside it. The smtplib classes
+    # implement the protocol, so `server.quit()` is called automatically
+    # at the end of the `with`. Same job as a `try / finally` block, just
+    # baked into the language so you can't forget the cleanup step.
     if port == 465:
         with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as server:
             server.login(username, password)
@@ -152,8 +154,8 @@ def main() -> int:
     args = parse_args()
 
     # Cheap local validation first — no point opening a network socket if
-    # the recipient is obviously malformed. Same instinct as validating an
-    # IP-address string before calling Test-NetConnection on it.
+    # the recipient is obviously malformed. Cheap to fail here; expensive
+    # to fail after a TCP+TLS handshake.
     if not EMAIL_RE.match(args.to):
         print(f"ERROR: '{args.to}' is not a valid email address.")
         return 1
@@ -162,8 +164,8 @@ def main() -> int:
 
     # Truncate the body for the on-screen preview so we don't spam the
     # terminal if a long message gets passed in. f-strings (the f"...{var}..."
-    # syntax) are Python's interpolated strings — same idea as PowerShell's
-    # double-quoted "Hello $name" or `"Value is $($obj.Property)"`.
+    # syntax) are Python's interpolated strings — same idea as JavaScript
+    # template literals: `Hello ${name}`.
     body_preview = args.body[:100] + "..." if len(args.body) > 100 else args.body
     print(f"Ready to send email from: {email}")
     print(f"To: {args.to}")
@@ -186,7 +188,7 @@ def main() -> int:
 
     # Specific exception handling — each `except` clause maps to a distinct
     # failure layer of the stack. Same diagnostic instinct you'd use
-    # triaging a TANET ticket: is this an *auth* problem, a *transport*
+    # triaging any incident ticket: is this an *auth* problem, a *transport*
     # problem, or a *DNS* problem? Catching `Exception` blanket-style
     # would collapse all of these into one unhelpful "Failed to send".
     try:
@@ -222,18 +224,18 @@ def main() -> int:
         return 1
     except socket.gaierror as e:
         # "getaddrinfo error" — DNS failed to resolve the SMTP host to an
-        # IP. This is the layer the CCNA covers under name resolution /
-        # DNS troubleshooting. Equivalent of `Resolve-DnsName smtp.gmail.com`
-        # coming back empty.
+        # IP address. This is the layer the CCNA covers under name
+        # resolution / DNS troubleshooting. Equivalent of running
+        # `nslookup smtp.gmail.com` and getting no result.
         print(
             f"ERROR: Could not resolve hostname '{args.smtp_host}' (DNS failure): {e}"
         )
         return 1
     except (ConnectionRefusedError, TimeoutError, OSError) as e:
-        # TCP/network-layer issues: TCP RST (port closed / firewall drop),
-        # no route to host, or socket timeout. Diagnose with the same
-        # tools you'd use at TANET — `Test-NetConnection -Port 465 smtp.gmail.com`,
-        # `tracert`, or a packet capture.
+        # TCP/network-layer issues: TCP RST (port closed or firewall drop),
+        # no route to host, or socket timeout. The same set of failures
+        # you'd diagnose with `telnet smtp.gmail.com 465`, `tracert`, or a
+        # packet capture in Wireshark.
         print(f"ERROR: Network error talking to {args.smtp_host}:{args.smtp_port}: {e}")
         return 1
 

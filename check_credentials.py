@@ -18,8 +18,9 @@ def main() -> int:
 
     # Early-return / "guard clause" pattern: each check is independent
     # and exits the function the moment it fires. Reads top-to-bottom
-    # without nested elif ladders. Same instinct as `return` early in a
-    # PowerShell function instead of building deep `if/else` blocks.
+    # with no nested elif ladders. The pattern is language-neutral —
+    # the same instinct that says "fail fast, then proceed" instead of
+    # building deep nested `if/else` blocks.
     if not email and not password:
         print("No credentials found. Run setup_credentials.py first.")
         return 1
@@ -33,9 +34,9 @@ def main() -> int:
     # Confirm presence WITHOUT echoing the value. A "secret store" that
     # prints the secret to stdout is not actually a secret store — anyone
     # with eyes on the terminal (or a screen-share, or a recorded session,
-    # or a logged shell session) would see the password. This is a tiny
-    # version of the same defense-in-depth principle that says service-
-    # account passwords should never appear in script output or logs.
+    # or a captured log file) would see the password. Same defense-in-
+    # depth principle that says service-account passwords should never
+    # appear in script output, log files, or error messages.
     print(f"Email retrieved: {email}")
     print("Password is present in keyring (hidden).")
     return 0
